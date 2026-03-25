@@ -1,5 +1,52 @@
 import React, { useState, useEffect } from "react";
 
+function TaskCard({ task, updateNotes, deleteTask, moveTask }) {
+  const [localNotes, setLocalNotes] = useState(task.notes || "");
+
+  return (
+    <div
+      style={{
+        background:
+          task.status === "entrada"
+            ? "#e3f2fd"
+            : task.status === "planejamento"
+            ? "#fff3cd"
+            : "#d4edda",
+        padding: 10,
+        marginBottom: 10,
+        borderRadius: 6,
+        border: "1px solid #ccc",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <strong>{task.title}</strong>
+        <button onClick={() => deleteTask(task.id)}>🗑</button>
+      </div>
+
+      <textarea
+        placeholder="Clique aqui e escreva..."
+        value={localNotes}
+        onChange={(e) => setLocalNotes(e.target.value)}
+        onBlur={() => updateNotes(task.id, localNotes)}
+        style={{
+          marginTop: 8,
+          width: "100%",
+          minHeight: 60,
+          border: "1px solid #ddd",
+          borderRadius: 4,
+          padding: 5,
+          fontSize: 14,
+        }}
+      />
+
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between" }}>
+        <button onClick={() => moveTask(task.id, "left")}>◀</button>
+        <button onClick={() => moveTask(task.id, "right")}>▶</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
@@ -57,13 +104,6 @@ export default function App() {
     );
   };
 
-  const getCardColor = (status) => {
-    if (status === "entrada") return "#e3f2fd"; // azul claro
-    if (status === "planejamento") return "#fff3cd"; // amarelo claro
-    if (status === "pronto") return "#d4edda"; // verde claro
-    return "white";
-  };
-
   const Column = ({ title, status }) => (
     <div style={{ flex: 1, padding: 10 }}>
       <h2>{title}</h2>
@@ -71,41 +111,13 @@ export default function App() {
       {tasks
         .filter((t) => t.status === status)
         .map((task) => (
-          <div
+          <TaskCard
             key={task.id}
-            style={{
-              background: getCardColor(task.status),
-              padding: 10,
-              marginBottom: 10,
-              borderRadius: 6,
-              border: "1px solid #ccc",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <strong>{task.title}</strong>
-              <button onClick={() => deleteTask(task.id)}>🗑</button>
-            </div>
-
-            <textarea
-              placeholder="Clique aqui e escreva..."
-              value={task.notes}
-              onChange={(e) => updateNotes(task.id, e.target.value)}
-              style={{
-                marginTop: 8,
-                width: "100%",
-                minHeight: 60,
-                border: "1px solid #ddd",
-                borderRadius: 4,
-                padding: 5,
-                fontSize: 14,
-              }}
-            />
-
-            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between" }}>
-              <button onClick={() => moveTask(task.id, "left")}>◀</button>
-              <button onClick={() => moveTask(task.id, "right")}>▶</button>
-            </div>
-          </div>
+            task={task}
+            updateNotes={updateNotes}
+            deleteTask={deleteTask}
+            moveTask={moveTask}
+          />
         ))}
     </div>
   );

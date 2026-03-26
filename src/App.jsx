@@ -196,8 +196,8 @@ export default function App() {
   );
 
   return (
-    <div style={{ padding: "20px", fontFamily: "sans-serif", backgroundColor: "#fff", minHeight: "100vh", color: "#222" }}>
-      <h1 style={{ textAlign: "center", marginBottom: "30px" }}>Pre-OS Board (Firebase)</h1>
+    <div style={{ padding: "20px", fontFamily: "sans-serif", backgroundColor: "#db0c0c", minHeight: "100vh", color: "#222" }}>
+      <h1 style={{ textAlign: "center", marginBottom: "30px" }}>Pre-OS Board</h1>
 
       <div style={{ marginBottom: 30, textAlign: "center" }}>
         <input

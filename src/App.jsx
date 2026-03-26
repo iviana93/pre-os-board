@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-// Importamos a conexão do banco de dados e as funções do Firebase
 import { db } from "./firebase"; 
 import { 
   collection, 
@@ -12,11 +11,9 @@ import {
   orderBy 
 } from "firebase/firestore";
 
-// Componente de cada cartão de tarefa
 function TaskCard({ task, updateNotes, deleteTask, moveTask }) {
   const [localNotes, setLocalNotes] = useState(task.notes || "");
 
-  // Atualiza o estado local se a nota mudar no banco de dados (por outro dispositivo)
   useEffect(() => {
     setLocalNotes(task.notes || "");
   }, [task.notes]);
@@ -34,13 +31,14 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask }) {
         marginBottom: 10,
         borderRadius: 6,
         border: "1px solid #ccc",
+        color: "#333", // Garante texto escuro
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <strong>{task.title}</strong>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <strong style={{ color: "#000" }}>{task.title}</strong>
         <button 
           onClick={() => deleteTask(task.id)} 
-          style={{ cursor: "pointer", border: "none", background: "none" }}
+          style={{ cursor: "pointer", border: "none", background: "none", fontSize: "16px" }}
         >
           🗑
         </button>
@@ -55,17 +53,19 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask }) {
           marginTop: 8,
           width: "100%",
           minHeight: 60,
-          border: "1px solid #ddd",
+          border: "1px solid #bbb",
           borderRadius: 4,
           padding: 5,
           fontSize: 14,
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          background: "#fff",
+          color: "#333" // Texto da nota sempre escuro
         }}
       />
 
       <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between" }}>
-        <button onClick={() => moveTask(task.id, "left")}>◀</button>
-        <button onClick={() => moveTask(task.id, "right")}>▶</button>
+        <button onClick={() => moveTask(task.id, "left")} style={{ padding: "2px 8px" }}>◀</button>
+        <button onClick={() => moveTask(task.id, "right")} style={{ padding: "2px 8px" }}>▶</button>
       </div>
     </div>
   );
@@ -75,11 +75,8 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
 
-  // 1. BUSCAR TAREFAS EM TEMPO REAL
   useEffect(() => {
-    // Ordenamos por data de criação para as novas aparecerem no fim ou início
     const q = query(collection(db, "tasks"), orderBy("createdAt", "asc"));
-    
     const unsub = onSnapshot(q, (snapshot) => {
       const taskList = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -87,14 +84,11 @@ export default function App() {
       }));
       setTasks(taskList);
     });
-
-    return () => unsub(); // Fecha a conexão quando o componente desmonta
+    return () => unsub();
   }, []);
 
-  // 2. ADICIONAR NOVA TAREFA
   const addTask = async () => {
     if (!title.trim()) return;
-
     try {
       await addDoc(collection(db, "tasks"), {
         title: title,
@@ -104,36 +98,28 @@ export default function App() {
       });
       setTitle("");
     } catch (error) {
-      console.error("Erro ao salvar no Firebase:", error);
+      console.error("Erro ao salvar:", error);
     }
   };
 
-  // 3. ATUALIZAR AS NOTAS (Quando sai do campo de texto)
   const updateNotes = async (id, value) => {
     try {
-      const taskRef = doc(db, "tasks", id);
-      await updateDoc(taskRef, { notes: value });
+      await updateDoc(doc(db, "tasks", id), { notes: value });
     } catch (error) {
-      console.error("Erro ao atualizar notas:", error);
+      console.error(error);
     }
   };
 
-  // 4. DELETAR TAREFA
   const deleteTask = async (id) => {
-    try {
+    if(window.confirm("Excluir esta tarefa?")) {
       await deleteDoc(doc(db, "tasks", id));
-    } catch (error) {
-      console.error("Erro ao deletar:", error);
     }
   };
 
-  // 5. MOVER TAREFA ENTRE COLUNAS
   const moveTask = async (id, direction) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-
     let newStatus = task.status;
-
     if (direction === "right") {
       if (task.status === "entrada") newStatus = "planejamento";
       else if (task.status === "planejamento") newStatus = "pronto";
@@ -141,19 +127,12 @@ export default function App() {
       if (task.status === "planejamento") newStatus = "entrada";
       else if (task.status === "pronto") newStatus = "planejamento";
     }
-
-    try {
-      const taskRef = doc(db, "tasks", id);
-      await updateDoc(taskRef, { status: newStatus });
-    } catch (error) {
-      console.error("Erro ao mover tarefa:", error);
-    }
+    await updateDoc(doc(db, "tasks", id), { status: newStatus });
   };
 
-  // Sub-componente de Coluna para organizar o layout
   const Column = ({ title, status }) => (
-    <div style={{ flex: 1, padding: 10, background: "#f8f9fa", borderRadius: 8 }}>
-      <h2 style={{ fontSize: "1.2rem", textAlign: "center" }}>{title}</h2>
+    <div style={{ flex: 1, padding: 10, background: "#f0f0f0", borderRadius: 8, minHeight: "70vh" }}>
+      <h2 style={{ fontSize: "1.1rem", textAlign: "center", color: "#333", marginBottom: 15 }}>{title}</h2>
       {tasks
         .filter((t) => t.status === status)
         .map((task) => (
@@ -169,26 +148,34 @@ export default function App() {
   );
 
   return (
-    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
-      <h1>Pre-OS Board (Firebase)</h1>
+    <div style={{ padding: 20, fontFamily: "sans-serif", backgroundColor: "#fff", minHeight: "100vh" }}>
+      <h1 style={{ color: "#222", textAlign: "center" }}>Pre-OS Board (Firebase)</h1>
 
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 20, textAlign: "center" }}>
         <input
           placeholder="Título da tarefa"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
-          style={{ padding: "8px", marginRight: 10, width: "250px" }}
+          style={{ 
+            padding: "10px", 
+            marginRight: 10, 
+            width: "250px", 
+            borderRadius: "4px", 
+            border: "1px solid #ccc",
+            background: "#fff",
+            color: "#000" 
+          }}
         />
         <button 
           onClick={addTask}
-          style={{ padding: "8px 16px", cursor: "pointer" }}
+          style={{ padding: "10px 20px", cursor: "pointer", background: "#007bff", color: "#fff", border: "none", borderRadius: "4px" }}
         >
           Adicionar
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 20 }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
         <Column title="ENTRADA" status="entrada" />
         <Column title="PLANEJAMENTO" status="planejamento" />
         <Column title="PRONTO PRA OS" status="pronto" />

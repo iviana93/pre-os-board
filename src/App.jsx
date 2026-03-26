@@ -11,7 +11,7 @@ import {
   orderBy 
 } from "firebase/firestore";
 
-function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, archiveTask }) {
+function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, archiveTask, renameTask }) {
   const [localNotes, setLocalNotes] = useState(task.notes || "");
   const [showNotes, setShowNotes] = useState(false); 
 
@@ -28,20 +28,32 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
         marginBottom: "12px",
         borderRadius: "8px",
         border: "1px solid #999",
-        color: "#000", // Força texto preto
+        color: "#000",
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong style={{ color: "#000", fontSize: "1rem", flex: 1, fontWeight: "bold" }}>
-          {task.title}
-        </strong>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1, cursor: "pointer" }} title="Clique no lápis para editar o nome">
+          <strong style={{ color: "#000", fontSize: "1rem", fontWeight: "bold", display: "inline-block", marginRight: "5px" }}>
+            {task.title}
+          </strong>
+          {/* BOTÃO RENOMEAR (✏️) */}
+          <button 
+            onClick={() => renameTask(task.id, task.title)}
+            style={{ border: "none", background: "none", cursor: "pointer", fontSize: "12px", padding: 0 }}
+          >
+            ✏️
+          </button>
+        </div>
         
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginLeft: "5px" }}>
           <button onClick={() => setShowNotes(!showNotes)} style={{ cursor: "pointer", border: "1px solid #999", background: "#eee", borderRadius: "4px", padding: "2px 6px", color: "#000" }}>
             {showNotes ? "🔼" : "📝"}
           </button>
-          <button onClick={() => duplicateTask(task)} style={{ cursor: "pointer", border: "none", background: "none", fontSize: "16px", color: "#000" }}>📋</button>
+          
+          <button onClick={() => duplicateTask(task)} style={{ cursor: "pointer", border: "none", background: "none", fontSize: "16px" }}>
+            📋
+          </button>
           
           {task.status === "pronto" && (
             <button 
@@ -52,7 +64,9 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
             </button>
           )}
 
-          <button onClick={() => deleteTask(task.id)} style={{ cursor: "pointer", border: "none", background: "none", color: "#d32f2f", fontSize: "18px" }}>🗑️</button>
+          <button onClick={() => deleteTask(task.id)} style={{ cursor: "pointer", border: "none", background: "none", color: "#d32f2f", fontSize: "18px" }}>
+            🗑️
+          </button>
         </div>
       </div>
 
@@ -72,7 +86,7 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
             fontSize: "14px",
             boxSizing: "border-box",
             background: "#fff",
-            color: "#000" // Texto da nota sempre preto
+            color: "#000"
           }}
         />
       )}
@@ -80,38 +94,20 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
       <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(0,0,0,0.2)", paddingTop: "10px" }}>
         <button 
             onClick={() => moveTask(task.id, "left")} 
-            disabled={task.status === "entrada"}
             style={{ 
-              border: "1px solid #444", 
-              background: "#fff", 
-              borderRadius: "4px", 
-              padding: "6px 15px", 
-              cursor: "pointer", 
-              fontSize: "18px", 
-              color: "#000", // Força a seta a ser preta
-              fontWeight: "bold",
+              border: "1px solid #444", background: "#fff", borderRadius: "4px", padding: "6px 15px", 
+              cursor: "pointer", fontSize: "18px", color: "#000", fontWeight: "bold",
               visibility: task.status === "entrada" ? "hidden" : "visible" 
             }}
-        >
-            ←
-        </button>
+        > ← </button>
         <button 
             onClick={() => moveTask(task.id, "right")} 
-            disabled={task.status === "pronto"}
             style={{ 
-              border: "1px solid #444", 
-              background: "#fff", 
-              borderRadius: "4px", 
-              padding: "6px 15px", 
-              cursor: "pointer", 
-              fontSize: "18px", 
-              color: "#000", // Força a seta a ser preta
-              fontWeight: "bold",
+              border: "1px solid #444", background: "#fff", borderRadius: "4px", padding: "6px 15px", 
+              cursor: "pointer", fontSize: "18px", color: "#000", fontWeight: "bold",
               visibility: task.status === "pronto" ? "hidden" : "visible"
             }}
-        >
-            →
-        </button>
+        > → </button>
       </div>
     </div>
   );
@@ -135,6 +131,27 @@ export default function App() {
     if (!title.trim()) return;
     await addDoc(collection(db, "tasks"), { title, notes: "", status: "entrada", createdAt: new Date() });
     setTitle("");
+  };
+
+  // FUNÇÃO PARA RENOMEAR OS EXISTENTE
+  const renameTask = async (id, currentTitle) => {
+    const newTitle = window.prompt("Editar nome da OS:", currentTitle);
+    if (newTitle && newTitle.trim() !== "") {
+      await updateDoc(doc(db, "tasks", id), { title: newTitle });
+    }
+  };
+
+  // FUNÇÃO PARA DUPLICAR (COM PROMPT DE NOME)
+  const duplicateTask = async (task) => {
+    const newTitle = window.prompt("Nome para a nova cópia:", `${task.title} (Cópia)`);
+    if (newTitle && newTitle.trim() !== "") {
+      await addDoc(collection(db, "tasks"), { 
+        title: newTitle, 
+        notes: task.notes, 
+        status: task.status, 
+        createdAt: new Date() 
+      });
+    }
   };
 
   const archiveTask = async (id) => {
@@ -165,9 +182,10 @@ export default function App() {
           task={task} 
           archiveTask={archiveTask} 
           moveTask={moveTask} 
-          deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} 
+          renameTask={renameTask}
+          duplicateTask={duplicateTask}
+          deleteTask={(id) => window.confirm("Excluir permanentemente?") && deleteDoc(doc(db, "tasks", id))} 
           updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} 
-          duplicateTask={async (t) => addDoc(collection(db, "tasks"), {...t, title: t.title + " (Cópia)", createdAt: new Date()})} 
         />
       ))}
     </div>

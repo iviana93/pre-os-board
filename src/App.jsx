@@ -9,9 +9,9 @@ import {
   doc, 
   query, 
   orderBy,
-  serverTimestamp 
+  serverTimestamp,
+  writeBatch // Necessário para atualizar vários cards de uma vez
 } from "firebase/firestore";
-// Importação necessária para o arraste
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 function TaskCard({ task, index, updateNotes, deleteTask, moveTask, duplicateTask, archiveTask, renameTask }) {
@@ -23,7 +23,7 @@ function TaskCard({ task, index, updateNotes, deleteTask, moveTask, duplicateTas
   }, [task.notes]);
 
   return (
-    <Draggable draggableId={task.id} index={index}>
+    <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
@@ -85,17 +85,8 @@ function TaskCard({ task, index, updateNotes, deleteTask, moveTask, duplicateTas
               onChange={(e) => setLocalNotes(e.target.value)}
               onBlur={() => updateNotes(task.id, localNotes)}
               style={{
-                marginTop: "6px",
-                width: "100%",
-                minHeight: "60px",
-                border: "1px solid #999",
-                borderRadius: "4px",
-                padding: "6px",
-                fontSize: "12px",
-                boxSizing: "border-box",
-                background: "#fff",
-                color: "#000",
-                resize: "vertical"
+                marginTop: "6px", width: "100%", minHeight: "60px", border: "1px solid #999", borderRadius: "4px",
+                padding: "6px", fontSize: "12px", boxSizing: "border-box", background: "#fff", color: "#000", resize: "vertical"
               }}
             />
           )}
@@ -131,37 +122,41 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const taskList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setTasks(taskList);
+    const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
+      setTasks(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
-
-    const qGroups = query(collection(db, "groups"), orderBy("createdAt", "asc"));
-    const unsubGroups = onSnapshot(qGroups, (snapshot) => {
+    const unsubGroups = onSnapshot(query(collection(db, "groups"), orderBy("createdAt", "asc")), (snapshot) => {
       setGroups(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    return () => { unsub(); unsubGroups(); };
+    return () => { unsubTasks(); unsubGroups(); };
   }, []);
 
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
-
     let newStatus = destination.droppableId;
     let newGroupId = null;
-
     if (destination.droppableId.startsWith("group-")) {
       newGroupId = destination.droppableId.replace("group-", "");
-      const targetGroup = groups.find(g => g.id === newGroupId);
-      newStatus = targetGroup.status;
+      newStatus = groups.find(g => g.id === newGroupId).status;
     }
+    await updateDoc(doc(db, "tasks", draggableId), { status: newStatus, groupId: newGroupId });
+  };
 
-    await updateDoc(doc(db, "tasks", draggableId), { 
-      status: newStatus, 
-      groupId: newGroupId 
+  const moveGroup = async (groupId, direction) => {
+    const group = groups.find(g => g.id === groupId);
+    const steps = ["entrada", "planejamento", "pronto"];
+    let idx = steps.indexOf(group.status);
+    if (direction === "right" && idx < 2) idx++;
+    else if (direction === "left" && idx > 0) idx--;
+    else return;
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, "groups", groupId), { status: steps[idx] });
+    tasks.filter(t => t.groupId === groupId).forEach(t => {
+      batch.update(doc(db, "tasks", t.id), { status: steps[idx] });
     });
+    await batch.commit();
   };
 
   const addTask = async () => {
@@ -177,39 +172,21 @@ export default function App() {
 
   const renameTask = async (id, currentTitle) => {
     const newTitle = window.prompt("Editar nome:", currentTitle);
-    if (newTitle && newTitle.trim() !== "") {
-      await updateDoc(doc(db, "tasks", id), { title: newTitle });
-    }
+    if (newTitle && newTitle.trim() !== "") await updateDoc(doc(db, "tasks", id), { title: newTitle });
   };
 
   const duplicateTask = async (task) => {
     const newTitle = window.prompt("Nome da cópia:", `${task.title} (Cópia)`);
-    if (newTitle && newTitle.trim() !== "") {
-      await addDoc(collection(db, "tasks"), { 
-        title: newTitle, 
-        notes: task.notes || "", 
-        status: task.status, 
-        createdAt: serverTimestamp(),
-        groupId: task.groupId || null 
-      });
-    }
-  };
-
-  const archiveTask = async (id) => {
-    await updateDoc(doc(db, "tasks", id), { status: "arquivado", finishedAt: serverTimestamp() });
+    if (newTitle) await addDoc(collection(db, "tasks"), { ...task, title: newTitle, createdAt: serverTimestamp(), id: null });
   };
 
   const moveTask = async (id, direction) => {
-    const task = tasks.find((t) => t.id === id);
-    let newStatus = task.status;
-    if (direction === "right") {
-      if (task.status === "entrada") newStatus = "planejamento";
-      else if (task.status === "planejamento") newStatus = "pronto";
-    } else {
-      if (task.status === "pronto") newStatus = "planejamento";
-      else if (task.status === "planejamento") newStatus = "entrada";
-    }
-    await updateDoc(doc(db, "tasks", id), { status: newStatus, groupId: null });
+    const task = tasks.find(t => t.id === id);
+    const steps = ["entrada", "planejamento", "pronto"];
+    let idx = steps.indexOf(task.status);
+    if (direction === "right" && idx < 2) idx++;
+    if (direction === "left" && idx > 0) idx--;
+    await updateDoc(doc(db, "tasks", id), { status: steps[idx], groupId: null });
   };
 
   const Column = ({ title, status, icon }) => (
@@ -217,32 +194,31 @@ export default function App() {
       <h2 style={{ fontSize: "0.85rem", textAlign: "center", color: "#333", textTransform: "uppercase", marginBottom: "12px", fontWeight: "bold" }}>
         {icon} {title} ({tasks.filter(t => t.status === status).length})
       </h2>
-      
       <Droppable droppableId={status}>
         {(provided, snapshot) => (
           <div ref={provided.innerRef} {...provided.droppableProps} style={{ minHeight: "150px", background: snapshot.isDraggingOver ? "#eee" : "transparent" }}>
-            
-            {/* Renderização de Grupos Aninhados */}
             {groups.filter(g => g.status === status).map(group => (
               <Droppable key={group.id} droppableId={`group-${group.id}`}>
                 {(gpProv, gpSnap) => (
                   <div ref={gpProv.innerRef} {...gpProv.droppableProps} style={{ background: gpSnap.isDraggingOver ? "#d1e7ff" : "#fff", border: "2px dashed #bbb", borderRadius: "8px", padding: "8px", marginBottom: "15px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "10px", fontWeight: "bold", color: "#666" }}>📦 GRUPO: {group.name.toUpperCase()}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <button onClick={() => moveGroup(group.id, "left")} style={{ fontSize: "10px", border: "1px solid #ccc", background: "#fff", cursor: "pointer", visibility: group.status === "entrada" ? "hidden" : "visible" }}>←</button>
+                        <span style={{ fontSize: "10px", fontWeight: "bold", color: "#666" }}>📦 {group.name.toUpperCase()}</span>
+                        <button onClick={() => moveGroup(group.id, "right")} style={{ fontSize: "10px", border: "1px solid #ccc", background: "#fff", cursor: "pointer", visibility: group.status === "pronto" ? "hidden" : "visible" }}>→</button>
+                      </div>
                       <button onClick={() => window.confirm("Excluir grupo?") && deleteDoc(doc(db, "groups", group.id))} style={{ fontSize: "9px", color: "red", border: "none", background: "none", cursor: "pointer" }}>remover</button>
                     </div>
                     {tasks.filter(t => t.groupId === group.id && t.status === status).map((task, index) => (
-                      <TaskCard key={task.id} index={index} task={task} archiveTask={archiveTask} moveTask={moveTask} renameTask={renameTask} duplicateTask={duplicateTask} deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} />
+                      <TaskCard key={task.id} index={index} task={task} archiveTask={(id) => updateDoc(doc(db, "tasks", id), {status: "arquivado", finishedAt: serverTimestamp()})} moveTask={moveTask} renameTask={renameTask} duplicateTask={duplicateTask} deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} />
                     ))}
                     {gpProv.placeholder}
                   </div>
                 )}
               </Droppable>
             ))}
-
-            {/* Cards Soltos na Coluna */}
-            {tasks.filter((t) => t.status === status && !t.groupId).map((task, index) => (
-              <TaskCard key={task.id} index={index} task={task} archiveTask={archiveTask} moveTask={moveTask} renameTask={renameTask} duplicateTask={duplicateTask} deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} />
+            {tasks.filter(t => t.status === status && !t.groupId).map((task, index) => (
+              <TaskCard key={task.id} index={index} task={task} archiveTask={(id) => updateDoc(doc(db, "tasks", id), {status: "arquivado", finishedAt: serverTimestamp()})} moveTask={moveTask} renameTask={renameTask} duplicateTask={duplicateTask} deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} />
             ))}
             {provided.placeholder}
           </div>
@@ -254,57 +230,33 @@ export default function App() {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div style={{ padding: "15px", fontFamily: "sans-serif", backgroundColor: "#ffffff", minHeight: "100vh", color: "#000000" }}>
-        <h1 style={{ textAlign: "center", fontSize: "1.4rem", marginBottom: "20px", color: "#000", fontWeight: "bold" }}>
-          GERENCIADOR DE OS
-        </h1>
-
+        <h1 style={{ textAlign: "center", fontSize: "1.4rem", marginBottom: "20px", color: "#000", fontWeight: "bold" }}>GERENCIADOR DE OS</h1>
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "8px" }}>
-          <input 
-            placeholder="Nova OS..." 
-            value={title} 
-            onChange={(e) => setTitle(e.target.value)} 
-            onKeyDown={(e) => e.key === "Enter" && addTask()} 
-            style={{ padding: "8px 12px", width: "200px", borderRadius: "4px", border: "1px solid #000", background: "#fff", color: "#000", fontSize: "14px" }} 
-          />
-          <button onClick={addTask} style={{ padding: "8px 16px", background: "#000", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "14px" }}>
-            +
-          </button>
-          <button onClick={addGroup} style={{ padding: "8px 12px", background: "#666", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>
-            Novo Grupo
-          </button>
+          <input placeholder="Nova OS..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} style={{ padding: "8px 12px", width: "200px", borderRadius: "4px", border: "1px solid #000", fontSize: "14px" }} />
+          <button onClick={addTask} style={{ padding: "8px 16px", background: "#000", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>+</button>
+          <button onClick={addGroup} style={{ padding: "8px 12px", background: "#666", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>Novo Grupo</button>
         </div>
-
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
           <Column title="Entrada" status="entrada" icon="📥" />
           <Column title="Planejamento" status="planejamento" icon="⚙️" />
           <Column title="Pronto" status="pronto" icon="📄" />
         </div>
-
+        {/* Histórico completo mantido */}
         <div style={{ marginTop: "40px", borderTop: "2px solid #ddd", paddingTop: "20px" }}>
-          <button 
-            onClick={() => setShowHistory(!showHistory)}
-            style={{ display: "block", margin: "0 auto", padding: "8px 20px", background: "#444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}
-          >
-            {showHistory ? "OCULTAR HISTÓRICO" : "VER HISTÓRICO"}
-          </button>
-
+          <button onClick={() => setShowHistory(!showHistory)} style={{ display: "block", margin: "0 auto", padding: "8px 20px", background: "#444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>{showHistory ? "OCULTAR HISTÓRICO" : "VER HISTÓRICO"}</button>
           {showHistory && (
             <div style={{ maxWidth: "800px", margin: "20px auto", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #ddd", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: "#eee", color: "#000", textAlign: "left" }}>
-                    <th style={{ padding: "10px" }}>Título</th>
-                    <th style={{ padding: "10px" }}>Finalizado</th>
-                    <th style={{ padding: "10px" }}>Ações</th>
+                    <th style={{ padding: "10px" }}>Título</th><th style={{ padding: "10px" }}>Finalizado</th><th style={{ padding: "10px" }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tasks.filter(t => t.status === "arquivado").map(task => (
                     <tr key={task.id} style={{ borderBottom: "1px solid #eee" }}>
                       <td style={{ padding: "10px", color: "#000" }}>{task.title}</td>
-                      <td style={{ padding: "10px", color: "#666" }}>
-                        {task.finishedAt?.toDate().toLocaleDateString("pt-BR")}
-                      </td>
+                      <td style={{ padding: "10px", color: "#666" }}>{task.finishedAt?.toDate().toLocaleDateString("pt-BR")}</td>
                       <td style={{ padding: "10px" }}>
                         <button onClick={() => updateDoc(doc(db, "tasks", task.id), {status: "pronto", groupId: null})} style={{ marginRight: "5px", cursor: "pointer", background: "#fff", border: "1px solid #ccc", padding: "2px 5px", fontSize: "11px" }}>Restaurar</button>
                         <button onClick={() => deleteDoc(doc(db, "tasks", task.id))} style={{ color: "red", cursor: "pointer", background: "none", border: "1px solid red", fontSize: "11px", padding: "2px 5px" }}>Apagar</button>

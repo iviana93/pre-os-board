@@ -24,37 +24,35 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
       style={{
         background:
           task.status === "entrada" ? "#e3f2fd" : task.status === "planejamento" ? "#fff3cd" : "#d4edda",
-        padding: "10px",
-        marginBottom: "10px",
+        padding: "12px",
+        marginBottom: "12px",
         borderRadius: "8px",
-        border: "1px solid #bbb",
-        color: "#333",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+        border: "1px solid #999",
+        color: "#000", // Força texto preto
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong style={{ color: "#000", fontSize: "0.95rem", flex: 1 }}>
+        <strong style={{ color: "#000", fontSize: "1rem", flex: 1, fontWeight: "bold" }}>
           {task.title}
         </strong>
         
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <button onClick={() => setShowNotes(!showNotes)} style={{ cursor: "pointer", border: "none", background: "#eee", borderRadius: "4px", padding: "2px 5px" }}>
+          <button onClick={() => setShowNotes(!showNotes)} style={{ cursor: "pointer", border: "1px solid #999", background: "#eee", borderRadius: "4px", padding: "2px 6px", color: "#000" }}>
             {showNotes ? "🔼" : "📝"}
           </button>
-          <button onClick={() => duplicateTask(task)} style={{ cursor: "pointer", border: "none", background: "none", fontSize: "14px" }}>📋</button>
+          <button onClick={() => duplicateTask(task)} style={{ cursor: "pointer", border: "none", background: "none", fontSize: "16px", color: "#000" }}>📋</button>
           
-          {/* BOTÃO CONCLUIR: Só aparece na última coluna */}
           {task.status === "pronto" && (
             <button 
               onClick={() => archiveTask(task.id)} 
-              title="Finalizar e mover para histórico"
-              style={{ cursor: "pointer", border: "none", background: "#28a745", color: "#fff", borderRadius: "4px", padding: "2px 6px", fontSize: "12px", fontWeight: "bold" }}
+              style={{ cursor: "pointer", border: "none", background: "#28a745", color: "#fff", borderRadius: "4px", padding: "4px 8px", fontSize: "12px", fontWeight: "bold" }}
             >
               ✅
             </button>
           )}
 
-          <button onClick={() => deleteTask(task.id)} style={{ cursor: "pointer", border: "none", background: "none", color: "#d32f2f", fontSize: "14px" }}>🗑️</button>
+          <button onClick={() => deleteTask(task.id)} style={{ cursor: "pointer", border: "none", background: "none", color: "#d32f2f", fontSize: "18px" }}>🗑️</button>
         </div>
       </div>
 
@@ -68,29 +66,49 @@ function TaskCard({ task, updateNotes, deleteTask, moveTask, duplicateTask, arch
             marginTop: "10px",
             width: "100%",
             minHeight: "80px",
-            border: "1px solid #ccc",
+            border: "1px solid #888",
             borderRadius: "4px",
             padding: "8px",
-            fontSize: "13px",
+            fontSize: "14px",
             boxSizing: "border-box",
             background: "#fff",
-            color: "#000"
+            color: "#000" // Texto da nota sempre preto
           }}
         />
       )}
 
-      <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(0,0,0,0.1)", paddingTop: "8px" }}>
+      <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(0,0,0,0.2)", paddingTop: "10px" }}>
         <button 
             onClick={() => moveTask(task.id, "left")} 
             disabled={task.status === "entrada"}
-            style={{ border: "1px solid #ccc", background: "#fff", borderRadius: "4px", padding: "4px 12px", cursor: "pointer", opacity: task.status === "entrada" ? 0.3 : 1 }}
+            style={{ 
+              border: "1px solid #444", 
+              background: "#fff", 
+              borderRadius: "4px", 
+              padding: "6px 15px", 
+              cursor: "pointer", 
+              fontSize: "18px", 
+              color: "#000", // Força a seta a ser preta
+              fontWeight: "bold",
+              visibility: task.status === "entrada" ? "hidden" : "visible" 
+            }}
         >
             ←
         </button>
         <button 
             onClick={() => moveTask(task.id, "right")} 
             disabled={task.status === "pronto"}
-            style={{ border: "1px solid #ccc", background: "#fff", borderRadius: "4px", padding: "4px 12px", cursor: "pointer", opacity: task.status === "pronto" ? 0.3 : 1 }}
+            style={{ 
+              border: "1px solid #444", 
+              background: "#fff", 
+              borderRadius: "4px", 
+              padding: "6px 15px", 
+              cursor: "pointer", 
+              fontSize: "18px", 
+              color: "#000", // Força a seta a ser preta
+              fontWeight: "bold",
+              visibility: task.status === "pronto" ? "hidden" : "visible"
+            }}
         >
             →
         </button>
@@ -137,23 +155,41 @@ export default function App() {
   };
 
   const Column = ({ title, status, icon }) => (
-    <div style={{ flex: "1 1 300px", maxWidth: "400px", padding: "12px", background: "#eee", borderRadius: "10px", minHeight: "60vh" }}>
-      <h2 style={{ fontSize: "0.85rem", textAlign: "center", color: "#666", textTransform: "uppercase", marginBottom: "15px" }}>
+    <div style={{ flex: "1 1 300px", maxWidth: "400px", padding: "12px", background: "#f0f0f0", borderRadius: "10px", minHeight: "60vh", border: "1px solid #ccc" }}>
+      <h2 style={{ fontSize: "1rem", textAlign: "center", color: "#000", textTransform: "uppercase", marginBottom: "15px", fontWeight: "bold" }}>
         {icon} {title} ({tasks.filter(t => t.status === status).length})
       </h2>
       {tasks.filter((t) => t.status === status).map((task) => (
-        <TaskCard key={task.id} task={task} archiveTask={archiveTask} moveTask={moveTask} deleteTask={(id) => deleteDoc(doc(db, "tasks", id))} updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} duplicateTask={async (t) => addDoc(collection(db, "tasks"), {...t, title: t.title + " (Cópia)", createdAt: new Date()})} />
+        <TaskCard 
+          key={task.id} 
+          task={task} 
+          archiveTask={archiveTask} 
+          moveTask={moveTask} 
+          deleteTask={(id) => window.confirm("Excluir?") && deleteDoc(doc(db, "tasks", id))} 
+          updateNotes={(id, n) => updateDoc(doc(db, "tasks", id), {notes: n})} 
+          duplicateTask={async (t) => addDoc(collection(db, "tasks"), {...t, title: t.title + " (Cópia)", createdAt: new Date()})} 
+        />
       ))}
     </div>
   );
 
   return (
-    <div style={{ padding: "20px", fontFamily: "sans-serif", backgroundColor: "#fff", minHeight: "100vh" }}>
-      <h1 style={{ textAlign: "center", fontSize: "1.6rem", marginBottom: "20px" }}>Gerenciador de OS</h1>
+    <div style={{ padding: "20px", fontFamily: "sans-serif", backgroundColor: "#ffffff", minHeight: "100vh", color: "#000000" }}>
+      <h1 style={{ textAlign: "center", fontSize: "1.8rem", marginBottom: "25px", color: "#000000", fontWeight: "bold" }}>
+        GERENCIADOR DE OS
+      </h1>
 
       <div style={{ marginBottom: "30px", display: "flex", justifyContent: "center", gap: "10px" }}>
-        <input placeholder="Nova OS..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} style={{ padding: "12px", width: "250px", borderRadius: "6px", border: "1px solid #bbb" }} />
-        <button onClick={addTask} style={{ padding: "12px 20px", background: "#28a745", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>CRIAR</button>
+        <input 
+          placeholder="Nova OS..." 
+          value={title} 
+          onChange={(e) => setTitle(e.target.value)} 
+          onKeyDown={(e) => e.key === "Enter" && addTask()} 
+          style={{ padding: "12px", width: "250px", borderRadius: "6px", border: "2px solid #000", background: "#fff", color: "#000", fontSize: "16px" }} 
+        />
+        <button onClick={addTask} style={{ padding: "12px 25px", background: "#000", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "16px" }}>
+          CRIAR
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", justifyContent: "center" }}>
@@ -162,35 +198,34 @@ export default function App() {
         <Column title="Pronto para OS" status="pronto" icon="📄" />
       </div>
 
-      {/* SEÇÃO DE HISTÓRICO */}
-      <div style={{ marginTop: "50px", borderTop: "2px solid #eee", paddingTop: "20px" }}>
+      <div style={{ marginTop: "60px", borderTop: "3px solid #000", paddingTop: "30px", paddingBottom: "50px" }}>
         <button 
           onClick={() => setShowHistory(!showHistory)}
-          style={{ display: "block", margin: "0 auto", padding: "10px 20px", background: "#6c757d", color: "#fff", border: "none", borderRadius: "20px", cursor: "pointer" }}
+          style={{ display: "block", margin: "0 auto", padding: "12px 30px", background: "#333", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}
         >
-          {showHistory ? "Ocultar Histórico" : "Ver OS Concluídas (Histórico)"}
+          {showHistory ? "OCULTAR HISTÓRICO" : "VER OS CONCLUÍDAS (HISTÓRICO)"}
         </button>
 
         {showHistory && (
-          <div style={{ maxWidth: "800px", margin: "20px auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", background: "#f9f9f9" }}>
+          <div style={{ maxWidth: "900px", margin: "25px auto", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #000" }}>
               <thead>
-                <tr style={{ borderBottom: "2px solid #ddd", textAlign: "left" }}>
-                  <th style={{ padding: "10px" }}>Título</th>
-                  <th style={{ padding: "10px" }}>Finalizado em</th>
-                  <th style={{ padding: "10px" }}>Ações</th>
+                <tr style={{ background: "#000", color: "#fff", textAlign: "left" }}>
+                  <th style={{ padding: "12px" }}>Título</th>
+                  <th style={{ padding: "12px" }}>Finalizado em</th>
+                  <th style={{ padding: "12px" }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.filter(t => t.status === "arquivado").map(task => (
-                  <tr key={task.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "10px" }}>{task.title}</td>
-                    <td style={{ padding: "10px", fontSize: "0.8rem", color: "#666" }}>
+                  <tr key={task.id} style={{ borderBottom: "1px solid #ccc" }}>
+                    <td style={{ padding: "12px", color: "#000", fontWeight: "bold" }}>{task.title}</td>
+                    <td style={{ padding: "12px", fontSize: "0.9rem", color: "#333" }}>
                       {task.finishedAt?.toDate().toLocaleDateString("pt-BR")}
                     </td>
-                    <td style={{ padding: "10px" }}>
-                      <button onClick={() => updateDoc(doc(db, "tasks", task.id), {status: "pronto"})} style={{ marginRight: "10px", cursor: "pointer", background: "none", border: "1px solid #ccc", fontSize: "10px" }}>Restaurar</button>
-                      <button onClick={() => deleteDoc(doc(db, "tasks", task.id))} style={{ color: "red", cursor: "pointer", background: "none", border: "1px solid red", fontSize: "10px" }}>Apagar</button>
+                    <td style={{ padding: "12px" }}>
+                      <button onClick={() => updateDoc(doc(db, "tasks", task.id), {status: "pronto"})} style={{ marginRight: "10px", cursor: "pointer", background: "#fff", border: "1px solid #000", padding: "4px 8px", color: "#000" }}>Restaurar</button>
+                      <button onClick={() => deleteDoc(doc(db, "tasks", task.id))} style={{ color: "red", cursor: "pointer", background: "#fff", border: "1px solid red", padding: "4px 8px" }}>Apagar</button>
                     </td>
                   </tr>
                 ))}

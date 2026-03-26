@@ -121,13 +121,22 @@ export default function App() {
   const [title, setTitle] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
+  // MUDANÇA: useEffect blindado para não mostrar documentos inexistentes (cards fantasmas)
   useEffect(() => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
-      setTasks(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const taskList = snapshot.docs
+        .filter(docSnap => docSnap.exists())
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+      setTasks(taskList);
     });
+
     const unsubGroups = onSnapshot(query(collection(db, "groups"), orderBy("createdAt", "asc")), (snapshot) => {
-      setGroups(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const groupList = snapshot.docs
+        .filter(docSnap => docSnap.exists())
+        .map(d => ({ id: d.id, ...d.data() }));
+      setGroups(groupList);
     });
+
     return () => { unsubTasks(); unsubGroups(); };
   }, []);
 
@@ -177,7 +186,6 @@ export default function App() {
         await updateDoc(doc(db, "tasks", id), { title: newTitle });
       } catch (e) {
         console.error("Erro ao editar:", e);
-        alert("Erro: Este card parece não existir no banco. Tente atualizar a página.");
       }
     }
   };
@@ -185,15 +193,12 @@ export default function App() {
   const duplicateTask = async (task) => {
     const newTitle = window.prompt("Nome da cópia:", `${task.title} (Cópia)`);
     if (newTitle) {
-      // Forçamos a remoção do ID antigo para o Firebase gerar um NOVO
-      const newTask = {
-        title: newTitle,
-        notes: task.notes || "",
-        status: task.status,
-        groupId: task.groupId || null,
-        createdAt: serverTimestamp()
-      };
-      await addDoc(collection(db, "tasks"), newTask);
+      const { id, ...taskData } = task; 
+      await addDoc(collection(db, "tasks"), { 
+        ...taskData, 
+        title: newTitle, 
+        createdAt: serverTimestamp() 
+      });
     }
   };
 
@@ -219,10 +224,23 @@ export default function App() {
                 {(gpProv, gpSnap) => (
                   <div ref={gpProv.innerRef} {...gpProv.droppableProps} style={{ background: gpSnap.isDraggingOver ? "#d1e7ff" : "#fff", border: "2px dashed #bbb", borderRadius: "8px", padding: "8px", marginBottom: "15px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      {/* MUDANÇA: Setas adicionadas aos botões de controle do grupo */}
                       <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <button onClick={() => moveGroup(group.id, "left")} style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "12px", padding: "2px 6px", borderRadius: "3px", visibility: group.status === "entrada" ? "hidden" : "visible" }}>←</button>
+                        <button 
+                          onClick={() => moveGroup(group.id, "left")} 
+                          style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "11px", padding: "2px 6px", borderRadius: "3px", color: "#000", visibility: group.status === "entrada" ? "hidden" : "visible" }}
+                        >
+                          ← Mover
+                        </button>
+                        
                         <span style={{ fontSize: "10px", fontWeight: "bold", color: "#666" }}>📦 {group.name.toUpperCase()}</span>
-                        <button onClick={() => moveGroup(group.id, "right")} style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "12px", padding: "2px 6px", borderRadius: "3px", visibility: group.status === "pronto" ? "hidden" : "visible" }}>→</button>
+                        
+                        <button 
+                          onClick={() => moveGroup(group.id, "right")} 
+                          style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "11px", padding: "2px 6px", borderRadius: "3px", color: "#000", visibility: group.status === "pronto" ? "hidden" : "visible" }}
+                        >
+                          Mover →
+                        </button>
                       </div>
                       <button onClick={() => window.confirm("Excluir grupo?") && deleteDoc(doc(db, "groups", group.id))} style={{ fontSize: "9px", color: "red", border: "none", background: "none", cursor: "pointer" }}>remover</button>
                     </div>
@@ -249,7 +267,7 @@ export default function App() {
       <div style={{ padding: "15px", fontFamily: "sans-serif", backgroundColor: "#ffffff", minHeight: "100vh", color: "#000000" }}>
         <h1 style={{ textAlign: "center", fontSize: "1.4rem", marginBottom: "20px", color: "#000", fontWeight: "bold" }}>GERENCIADOR DE OS</h1>
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "8px" }}>
-          <input placeholder="Nova OS..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} style={{ padding: "8px 12px", width: "200px", borderRadius: "4px", border: "1px solid #000", fontSize: "14px" }} />
+          <input placeholder="Nova OS..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} style={{ padding: "8px 12px", width: "200px", borderRadius: "4px", border: "1px solid #000", fontSize: "14px", color: "#000" }} />
           <button onClick={addTask} style={{ padding: "8px 16px", background: "#000", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>+</button>
           <button onClick={addGroup} style={{ padding: "8px 12px", background: "#666", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>Novo Grupo</button>
         </div>
@@ -258,7 +276,6 @@ export default function App() {
           <Column title="Planejamento" status="planejamento" icon="⚙️" />
           <Column title="Pronto" status="pronto" icon="📄" />
         </div>
-        {/* Histórico completo mantido integralmente */}
         <div style={{ marginTop: "40px", borderTop: "2px solid #ddd", paddingTop: "20px" }}>
           <button onClick={() => setShowHistory(!showHistory)} style={{ display: "block", margin: "0 auto", padding: "8px 20px", background: "#444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>{showHistory ? "OCULTAR HISTÓRICO" : "VER HISTÓRICO"}</button>
           {showHistory && (

@@ -172,14 +172,28 @@ export default function App() {
 
   const renameTask = async (id, currentTitle) => {
     const newTitle = window.prompt("Editar nome:", currentTitle);
-    if (newTitle && newTitle.trim() !== "") await updateDoc(doc(db, "tasks", id), { title: newTitle });
+    if (newTitle && newTitle.trim() !== "") {
+      try {
+        await updateDoc(doc(db, "tasks", id), { title: newTitle });
+      } catch (e) {
+        console.error("Erro ao editar:", e);
+        alert("Erro: Este card parece não existir no banco. Tente atualizar a página.");
+      }
+    }
   };
 
   const duplicateTask = async (task) => {
     const newTitle = window.prompt("Nome da cópia:", `${task.title} (Cópia)`);
     if (newTitle) {
-      const { id, ...taskData } = task; 
-      await addDoc(collection(db, "tasks"), { ...taskData, title: newTitle, createdAt: serverTimestamp() });
+      // Forçamos a remoção do ID antigo para o Firebase gerar um NOVO
+      const newTask = {
+        title: newTitle,
+        notes: task.notes || "",
+        status: task.status,
+        groupId: task.groupId || null,
+        createdAt: serverTimestamp()
+      };
+      await addDoc(collection(db, "tasks"), newTask);
     }
   };
 
@@ -206,9 +220,9 @@ export default function App() {
                   <div ref={gpProv.innerRef} {...gpProv.droppableProps} style={{ background: gpSnap.isDraggingOver ? "#d1e7ff" : "#fff", border: "2px dashed #bbb", borderRadius: "8px", padding: "8px", marginBottom: "15px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <button onClick={() => moveGroup(group.id, "left")} style={{ border: "1px solid #999", background: "#fff", cursor: "pointer", fontSize: "10px", padding: "1px 5px", visibility: group.status === "entrada" ? "hidden" : "visible" }}>←</button>
+                        <button onClick={() => moveGroup(group.id, "left")} style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "12px", padding: "2px 6px", borderRadius: "3px", visibility: group.status === "entrada" ? "hidden" : "visible" }}>←</button>
                         <span style={{ fontSize: "10px", fontWeight: "bold", color: "#666" }}>📦 {group.name.toUpperCase()}</span>
-                        <button onClick={() => moveGroup(group.id, "right")} style={{ border: "1px solid #999", background: "#fff", cursor: "pointer", fontSize: "10px", padding: "1px 5px", visibility: group.status === "pronto" ? "hidden" : "visible" }}>→</button>
+                        <button onClick={() => moveGroup(group.id, "right")} style={{ border: "1px solid #999", background: "#eee", cursor: "pointer", fontSize: "12px", padding: "2px 6px", borderRadius: "3px", visibility: group.status === "pronto" ? "hidden" : "visible" }}>→</button>
                       </div>
                       <button onClick={() => window.confirm("Excluir grupo?") && deleteDoc(doc(db, "groups", group.id))} style={{ fontSize: "9px", color: "red", border: "none", background: "none", cursor: "pointer" }}>remover</button>
                     </div>
@@ -244,6 +258,7 @@ export default function App() {
           <Column title="Planejamento" status="planejamento" icon="⚙️" />
           <Column title="Pronto" status="pronto" icon="📄" />
         </div>
+        {/* Histórico completo mantido integralmente */}
         <div style={{ marginTop: "40px", borderTop: "2px solid #ddd", paddingTop: "20px" }}>
           <button onClick={() => setShowHistory(!showHistory)} style={{ display: "block", margin: "0 auto", padding: "8px 20px", background: "#444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" }}>{showHistory ? "OCULTAR HISTÓRICO" : "VER HISTÓRICO"}</button>
           {showHistory && (

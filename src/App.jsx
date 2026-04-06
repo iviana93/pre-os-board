@@ -265,7 +265,7 @@ export default function App() {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div style={{ padding: "15px", fontFamily: "sans-serif", backgroundColor: "#ffffff", minHeight: "100vh", color: "#000000" }}>
-        <h1 style={{ textAlign: "center", fontSize: "1.4rem", marginBottom: "20px", color: "#000", fontWeight: "bold" }}>GERENCIADOR DE OS</h1>
+        <h1 style={{ textAlign: "center", fontSize: "1.4rem", marginBottom: "20px", color: "#000", fontWeight: "bold" }}>GERENCIADOR DE EVENTOS</h1>
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "8px" }}>
           <input placeholder="Nova OS..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} style={{ padding: "8px 12px", width: "200px", borderRadius: "4px", border: "1px solid #000", fontSize: "14px", color: "#000" }} />
           <button onClick={addTask} style={{ padding: "8px 16px", background: "#000", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>+</button>
